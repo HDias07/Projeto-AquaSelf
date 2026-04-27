@@ -1,0 +1,181 @@
+<?php
+require_once __DIR__ . "/conexao.php";
+
+$mensagem = "";
+$tipoMensagem = "";
+
+$dadosAnimal = [
+    "nome" => "",
+    "especie" => "",
+    "identificador" => "",
+    "localizacao" => "",
+    "estado_saude" => "",
+    "data_registro" => "",
+];
+
+if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    foreach ($dadosAnimal as $campo => $valor) {
+        $dadosAnimal[$campo] = trim($_POST[$campo] ?? "");
+    }
+
+    if (in_array("", $dadosAnimal, true)) {
+        $mensagem = "Preencha todos os campos antes de salvar o animal.";
+        $tipoMensagem = "erro";
+    } elseif ($mensagemConexao !== "") {
+        $mensagem = $mensagemConexao;
+        $tipoMensagem = "erro";
+    } else {
+        $sql = "INSERT INTO animais_marinhos (nome, especie, identificador, localizacao, estado_saude, data_registro)
+                VALUES (?, ?, ?, ?, ?, ?)";
+        $comando = $conexao->prepare($sql);
+
+        if ($comando) {
+            $comando->bind_param(
+                "ssssss",
+                $dadosAnimal["nome"],
+                $dadosAnimal["especie"],
+                $dadosAnimal["identificador"],
+                $dadosAnimal["localizacao"],
+                $dadosAnimal["estado_saude"],
+                $dadosAnimal["data_registro"]
+            );
+
+            if ($comando->execute()) {
+                $mensagem = "Animal marinho cadastrado com sucesso.";
+                $tipoMensagem = "sucesso";
+
+                foreach ($dadosAnimal as $campo => $valor) {
+                    $dadosAnimal[$campo] = "";
+                }
+            } else {
+                $mensagem = "Nao foi possivel salvar o animal. Tente novamente.";
+                $tipoMensagem = "erro";
+            }
+
+            $comando->close();
+        } else {
+            $mensagem = "Nao foi possivel preparar o comando SQL para cadastrar o animal.";
+            $tipoMensagem = "erro";
+        }
+    }
+}
+
+$animais = [];
+
+if ($mensagemConexao === "") {
+    $resultado = $conexao->query("SELECT nome, especie, identificador, localizacao, estado_saude, data_registro
+        FROM animais_marinhos
+        ORDER BY data_registro DESC, id DESC");
+
+    if ($resultado instanceof mysqli_result) {
+        while ($linha = $resultado->fetch_assoc()) {
+            $animais[] = $linha;
+        }
+
+        $resultado->free();
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaSelf | Animais Marinhos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="subpagina topo-animais">
+        <nav class="menu">
+            <a class="logo" href="index.php">AquaSelf</a>
+            <div class="menu-links">
+                <a href="index.php">Inicio</a>
+                <a href="animais.php">Animais marinhos</a>
+                <a href="monitoramento.php">Monitoramento</a>
+            </div>
+        </nav>
+
+        <section class="subpagina-intro">
+            <span class="etiqueta">Base de rastreamento biologico</span>
+            <h1>Rastreamento de animais marinhos</h1>
+            <p>
+                Registre os animais monitorados pelo AquaSelf e acompanhe informacoes essenciais
+                para observacao, pesquisa e preservacao marinha.
+            </p>
+        </section>
+    </header>
+
+    <main class="container pagina-dupla">
+        <section class="card">
+            <h2>Novo animal monitorado</h2>
+            <p>Preencha todos os campos para adicionar um novo registro ao sistema.</p>
+
+            <?php if ($mensagem !== ""): ?>
+                <p class="feedback <?php echo htmlspecialchars($tipoMensagem); ?>">
+                    <?php echo htmlspecialchars($mensagem); ?>
+                </p>
+            <?php endif; ?>
+
+            <form action="animais.php" method="POST" class="formulario">
+                <label for="nome">Nome do animal</label>
+                <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($dadosAnimal["nome"]); ?>" required>
+
+                <label for="especie">Especie</label>
+                <input type="text" id="especie" name="especie" value="<?php echo htmlspecialchars($dadosAnimal["especie"]); ?>" required>
+
+                <label for="identificador">Identificador</label>
+                <input type="text" id="identificador" name="identificador" value="<?php echo htmlspecialchars($dadosAnimal["identificador"]); ?>" required>
+
+                <label for="localizacao">Localizacao atual</label>
+                <input type="text" id="localizacao" name="localizacao" value="<?php echo htmlspecialchars($dadosAnimal["localizacao"]); ?>" required>
+
+                <label for="estado_saude">Estado de saude</label>
+                <input type="text" id="estado_saude" name="estado_saude" value="<?php echo htmlspecialchars($dadosAnimal["estado_saude"]); ?>" required>
+
+                <label for="data_registro">Data do registro</label>
+                <input type="date" id="data_registro" name="data_registro" value="<?php echo htmlspecialchars($dadosAnimal["data_registro"]); ?>" required>
+
+                <button type="submit" class="botao botao-principal botao-formulario">Salvar animal</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>Animais cadastrados</h2>
+            <p>Os registros mais recentes aparecem primeiro para facilitar o acompanhamento.</p>
+
+            <?php if ($mensagemConexao !== ""): ?>
+                <p class="feedback erro"><?php echo htmlspecialchars($mensagemConexao); ?></p>
+            <?php elseif (count($animais) === 0): ?>
+                <p class="vazio">Nenhum animal foi cadastrado ainda.</p>
+            <?php else: ?>
+                <div class="tabela-responsiva">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome</th>
+                                <th>Especie</th>
+                                <th>Identificador</th>
+                                <th>Localizacao</th>
+                                <th>Saude</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($animais as $animal): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($animal["nome"]); ?></td>
+                                    <td><?php echo htmlspecialchars($animal["especie"]); ?></td>
+                                    <td><?php echo htmlspecialchars($animal["identificador"]); ?></td>
+                                    <td><?php echo htmlspecialchars($animal["localizacao"]); ?></td>
+                                    <td><?php echo htmlspecialchars($animal["estado_saude"]); ?></td>
+                                    <td><?php echo htmlspecialchars($animal["data_registro"]); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </section>
+    </main>
+</body>
+</html>
