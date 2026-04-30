@@ -53,20 +53,60 @@ if ($mensagemConexao === "" && isset($_GET["editar"])) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $acao = $_POST["acao"] ?? "salvar";
     $idEdicao = (int) ($_POST["id"] ?? 0);
     $modoEdicao = $idEdicao > 0;
 
-    foreach ($dadosAnimal as $campo => $valor) {
-        $dadosAnimal[$campo] = trim($_POST[$campo] ?? "");
-    }
-
-    if (in_array("", $dadosAnimal, true)) {
-        $mensagem = "Preencha todos os campos antes de salvar o animal.";
-        $tipoMensagem = "erro";
-    } elseif ($mensagemConexao !== "") {
+    if ($mensagemConexao !== "") {
         $mensagem = $mensagemConexao;
         $tipoMensagem = "erro";
+    } elseif ($acao === "excluir") {
+        $idExcluir = (int) ($_POST["id_excluir"] ?? 0);
+
+        if ($idExcluir <= 0) {
+            $mensagem = "Nao foi possivel identificar o animal que seria excluido.";
+            $tipoMensagem = "erro";
+        } else {
+            $sqlExcluir = "DELETE FROM animais_marinhos WHERE id = ?";
+            $comandoExcluir = $conexao->prepare($sqlExcluir);
+
+            if ($comandoExcluir) {
+                $comandoExcluir->bind_param("i", $idExcluir);
+
+                if ($comandoExcluir->execute()) {
+                    $mensagem = "Animal marinho excluido com sucesso.";
+                    $tipoMensagem = "sucesso";
+
+                    if ($modoEdicao && $idEdicao === $idExcluir) {
+                        $modoEdicao = false;
+                        $idEdicao = 0;
+
+                        foreach ($dadosAnimal as $campo => $valor) {
+                            $dadosAnimal[$campo] = "";
+                        }
+                    }
+                } else {
+                    $mensagem = "Nao foi possivel excluir o animal selecionado.";
+                    $tipoMensagem = "erro";
+                }
+
+                $comandoExcluir->close();
+            } else {
+                $mensagem = "Nao foi possivel preparar a exclusao do animal.";
+                $tipoMensagem = "erro";
+            }
+        }
     } else {
+        foreach ($dadosAnimal as $campo => $valor) {
+            $dadosAnimal[$campo] = trim($_POST[$campo] ?? "");
+        }
+
+        if (in_array("", $dadosAnimal, true)) {
+            $mensagem = "Preencha todos os campos antes de salvar o animal.";
+            $tipoMensagem = "erro";
+            goto fimProcessamentoAnimal;
+        }
+
         if ($modoEdicao) {
             $sql = "UPDATE animais_marinhos
                     SET nome = ?, especie = ?, identificador = ?, localizacao = ?, estado_saude = ?, data_registro = ?
@@ -127,6 +167,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
 }
+fimProcessamentoAnimal:
 
 $animais = [];
 
@@ -252,7 +293,14 @@ if ($mensagemConexao === "") {
                                     <td><?php echo htmlspecialchars($animal["estado_saude"]); ?></td>
                                     <td><?php echo htmlspecialchars($animal["data_registro"]); ?></td>
                                     <td>
-                                        <a class="botao-tabela" href="animais.php?editar=<?php echo (int) $animal["id"]; ?>">Editar</a>
+                                        <div class="acoes-tabela">
+                                            <a class="botao-tabela" href="animais.php?editar=<?php echo (int) $animal["id"]; ?>">Editar</a>
+                                            <form action="animais.php" method="POST" class="formulario-excluir" onsubmit="return confirm('Tem certeza que deseja excluir este animal?');">
+                                                <input type="hidden" name="acao" value="excluir">
+                                                <input type="hidden" name="id_excluir" value="<?php echo (int) $animal["id"]; ?>">
+                                                <button type="submit" class="botao-tabela botao-perigo">Excluir</button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>

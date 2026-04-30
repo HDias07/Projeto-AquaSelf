@@ -53,20 +53,60 @@ if ($mensagemConexao === "" && isset($_GET["editar"])) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $acao = $_POST["acao"] ?? "salvar";
     $idEdicao = (int) ($_POST["id"] ?? 0);
     $modoEdicao = $idEdicao > 0;
 
-    foreach ($dadosMonitoramento as $campo => $valor) {
-        $dadosMonitoramento[$campo] = trim($_POST[$campo] ?? "");
-    }
-
-    if (in_array("", $dadosMonitoramento, true)) {
-        $mensagem = "Preencha todos os campos do monitoramento ambiental.";
-        $tipoMensagem = "erro";
-    } elseif ($mensagemConexao !== "") {
+    if ($mensagemConexao !== "") {
         $mensagem = $mensagemConexao;
         $tipoMensagem = "erro";
+    } elseif ($acao === "excluir") {
+        $idExcluir = (int) ($_POST["id_excluir"] ?? 0);
+
+        if ($idExcluir <= 0) {
+            $mensagem = "Nao foi possivel identificar o registro que seria excluido.";
+            $tipoMensagem = "erro";
+        } else {
+            $sqlExcluir = "DELETE FROM monitoramento_ambiental WHERE id = ?";
+            $comandoExcluir = $conexao->prepare($sqlExcluir);
+
+            if ($comandoExcluir) {
+                $comandoExcluir->bind_param("i", $idExcluir);
+
+                if ($comandoExcluir->execute()) {
+                    $mensagem = "Registro ambiental excluido com sucesso.";
+                    $tipoMensagem = "sucesso";
+
+                    if ($modoEdicao && $idEdicao === $idExcluir) {
+                        $modoEdicao = false;
+                        $idEdicao = 0;
+
+                        foreach ($dadosMonitoramento as $campo => $valor) {
+                            $dadosMonitoramento[$campo] = "";
+                        }
+                    }
+                } else {
+                    $mensagem = "Nao foi possivel excluir o registro ambiental selecionado.";
+                    $tipoMensagem = "erro";
+                }
+
+                $comandoExcluir->close();
+            } else {
+                $mensagem = "Nao foi possivel preparar a exclusao do registro ambiental.";
+                $tipoMensagem = "erro";
+            }
+        }
     } else {
+        foreach ($dadosMonitoramento as $campo => $valor) {
+            $dadosMonitoramento[$campo] = trim($_POST[$campo] ?? "");
+        }
+
+        if (in_array("", $dadosMonitoramento, true)) {
+            $mensagem = "Preencha todos os campos do monitoramento ambiental.";
+            $tipoMensagem = "erro";
+            goto fimProcessamentoMonitoramento;
+        }
+
         if ($modoEdicao) {
             $sql = "UPDATE monitoramento_ambiental
                 SET local_coleta = ?, temperatura_agua = ?, salinidade = ?, ph_agua = ?, nivel_poluicao = ?, data_coleta = ?
@@ -128,6 +168,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         }
     }
 }
+fimProcessamentoMonitoramento:
 
 $registros = [];
 
@@ -258,7 +299,14 @@ if ($mensagemConexao === "") {
                                     <td><?php echo htmlspecialchars($registro["nivel_poluicao"]); ?></td>
                                     <td><?php echo htmlspecialchars($registro["data_coleta"]); ?></td>
                                     <td>
-                                        <a class="botao-tabela" href="monitoramento.php?editar=<?php echo (int) $registro["id"]; ?>">Editar</a>
+                                        <div class="acoes-tabela">
+                                            <a class="botao-tabela" href="monitoramento.php?editar=<?php echo (int) $registro["id"]; ?>">Editar</a>
+                                            <form action="monitoramento.php" method="POST" class="formulario-excluir" onsubmit="return confirm('Tem certeza que deseja excluir este registro ambiental?');">
+                                                <input type="hidden" name="acao" value="excluir">
+                                                <input type="hidden" name="id_excluir" value="<?php echo (int) $registro["id"]; ?>">
+                                                <button type="submit" class="botao-tabela botao-perigo">Excluir</button>
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
