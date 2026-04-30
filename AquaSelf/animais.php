@@ -3,6 +3,8 @@ require_once __DIR__ . "/conexao.php";
 
 $mensagem = "";
 $tipoMensagem = "";
+$modoEdicao = false;
+$idEdicao = 0;
 
 $dadosAnimal = [
     "nome" => "",
@@ -13,7 +15,47 @@ $dadosAnimal = [
     "data_registro" => "",
 ];
 
+if ($mensagemConexao === "" && isset($_GET["editar"])) {
+    $idEdicao = (int) $_GET["editar"];
+
+    if ($idEdicao > 0) {
+        $modoEdicao = true;
+        $sqlEdicao = "SELECT id, nome, especie, identificador, localizacao, estado_saude, data_registro
+            FROM animais_marinhos
+            WHERE id = ?";
+        $comandoEdicao = $conexao->prepare($sqlEdicao);
+
+        if ($comandoEdicao) {
+            $comandoEdicao->bind_param("i", $idEdicao);
+            $comandoEdicao->execute();
+            $resultadoEdicao = $comandoEdicao->get_result();
+            $animalEdicao = $resultadoEdicao ? $resultadoEdicao->fetch_assoc() : null;
+
+            if ($animalEdicao) {
+                $dadosAnimal = [
+                    "nome" => $animalEdicao["nome"],
+                    "especie" => $animalEdicao["especie"],
+                    "identificador" => $animalEdicao["identificador"],
+                    "localizacao" => $animalEdicao["localizacao"],
+                    "estado_saude" => $animalEdicao["estado_saude"],
+                    "data_registro" => $animalEdicao["data_registro"],
+                ];
+            } else {
+                $modoEdicao = false;
+                $idEdicao = 0;
+                $mensagem = "O animal selecionado para edicao nao foi encontrado.";
+                $tipoMensagem = "erro";
+            }
+
+            $comandoEdicao->close();
+        }
+    }
+}
+
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
+    $idEdicao = (int) ($_POST["id"] ?? 0);
+    $modoEdicao = $idEdicao > 0;
+
     foreach ($dadosAnimal as $campo => $valor) {
         $dadosAnimal[$campo] = trim($_POST[$campo] ?? "");
     }
@@ -25,30 +67,56 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $mensagem = $mensagemConexao;
         $tipoMensagem = "erro";
     } else {
-        $sql = "INSERT INTO animais_marinhos (nome, especie, identificador, localizacao, estado_saude, data_registro)
-                VALUES (?, ?, ?, ?, ?, ?)";
+        if ($modoEdicao) {
+            $sql = "UPDATE animais_marinhos
+                    SET nome = ?, especie = ?, identificador = ?, localizacao = ?, estado_saude = ?, data_registro = ?
+                    WHERE id = ?";
+        } else {
+            $sql = "INSERT INTO animais_marinhos (nome, especie, identificador, localizacao, estado_saude, data_registro)
+                    VALUES (?, ?, ?, ?, ?, ?)";
+        }
+
         $comando = $conexao->prepare($sql);
 
         if ($comando) {
-            $comando->bind_param(
-                "ssssss",
-                $dadosAnimal["nome"],
-                $dadosAnimal["especie"],
-                $dadosAnimal["identificador"],
-                $dadosAnimal["localizacao"],
-                $dadosAnimal["estado_saude"],
-                $dadosAnimal["data_registro"]
-            );
+            if ($modoEdicao) {
+                $comando->bind_param(
+                    "ssssssi",
+                    $dadosAnimal["nome"],
+                    $dadosAnimal["especie"],
+                    $dadosAnimal["identificador"],
+                    $dadosAnimal["localizacao"],
+                    $dadosAnimal["estado_saude"],
+                    $dadosAnimal["data_registro"],
+                    $idEdicao
+                );
+            } else {
+                $comando->bind_param(
+                    "ssssss",
+                    $dadosAnimal["nome"],
+                    $dadosAnimal["especie"],
+                    $dadosAnimal["identificador"],
+                    $dadosAnimal["localizacao"],
+                    $dadosAnimal["estado_saude"],
+                    $dadosAnimal["data_registro"]
+                );
+            }
 
             if ($comando->execute()) {
-                $mensagem = "Animal marinho cadastrado com sucesso.";
+                $mensagem = $modoEdicao
+                    ? "Animal marinho atualizado com sucesso."
+                    : "Animal marinho cadastrado com sucesso.";
                 $tipoMensagem = "sucesso";
+                $modoEdicao = false;
+                $idEdicao = 0;
 
                 foreach ($dadosAnimal as $campo => $valor) {
                     $dadosAnimal[$campo] = "";
                 }
             } else {
-                $mensagem = "Nao foi possivel salvar o animal. Tente novamente.";
+                $mensagem = $modoEdicao
+                    ? "Nao foi possivel atualizar o animal. Tente novamente."
+                    : "Nao foi possivel salvar o animal. Tente novamente.";
                 $tipoMensagem = "erro";
             }
 
@@ -63,7 +131,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 $animais = [];
 
 if ($mensagemConexao === "") {
-    $resultado = $conexao->query("SELECT nome, especie, identificador, localizacao, estado_saude, data_registro
+    $resultado = $conexao->query("SELECT id, nome, especie, identificador, localizacao, estado_saude, data_registro
         FROM animais_marinhos
         ORDER BY data_registro DESC, id DESC");
 
@@ -107,8 +175,12 @@ if ($mensagemConexao === "") {
 
     <main class="container pagina-dupla">
         <section class="card">
-            <h2>Novo animal monitorado</h2>
-            <p>Preencha todos os campos para adicionar um novo registro ao sistema.</p>
+            <h2><?php echo $modoEdicao ? "Editar animal monitorado" : "Novo animal monitorado"; ?></h2>
+            <p>
+                <?php echo $modoEdicao
+                    ? "Atualize os dados do animal selecionado e salve as alteracoes."
+                    : "Preencha todos os campos para adicionar um novo registro ao sistema."; ?>
+            </p>
 
             <?php if ($mensagem !== ""): ?>
                 <p class="feedback <?php echo htmlspecialchars($tipoMensagem); ?>">
@@ -117,6 +189,8 @@ if ($mensagemConexao === "") {
             <?php endif; ?>
 
             <form action="animais.php" method="POST" class="formulario">
+                <input type="hidden" name="id" value="<?php echo $idEdicao; ?>">
+
                 <label for="nome">Nome do animal</label>
                 <input type="text" id="nome" name="nome" value="<?php echo htmlspecialchars($dadosAnimal["nome"]); ?>" required>
 
@@ -135,7 +209,14 @@ if ($mensagemConexao === "") {
                 <label for="data_registro">Data do registro</label>
                 <input type="date" id="data_registro" name="data_registro" value="<?php echo htmlspecialchars($dadosAnimal["data_registro"]); ?>" required>
 
-                <button type="submit" class="botao botao-principal botao-formulario">Salvar animal</button>
+                <div class="acoes-formulario">
+                    <button type="submit" class="botao botao-principal botao-formulario">
+                        <?php echo $modoEdicao ? "Atualizar animal" : "Salvar animal"; ?>
+                    </button>
+                    <?php if ($modoEdicao): ?>
+                        <a href="animais.php" class="botao botao-secundario botao-formulario">Cancelar edicao</a>
+                    <?php endif; ?>
+                </div>
             </form>
         </section>
 
@@ -158,6 +239,7 @@ if ($mensagemConexao === "") {
                                 <th>Localizacao</th>
                                 <th>Saude</th>
                                 <th>Data</th>
+                                <th>Acoes</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -169,6 +251,9 @@ if ($mensagemConexao === "") {
                                     <td><?php echo htmlspecialchars($animal["localizacao"]); ?></td>
                                     <td><?php echo htmlspecialchars($animal["estado_saude"]); ?></td>
                                     <td><?php echo htmlspecialchars($animal["data_registro"]); ?></td>
+                                    <td>
+                                        <a class="botao-tabela" href="animais.php?editar=<?php echo (int) $animal["id"]; ?>">Editar</a>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>

@@ -276,6 +276,30 @@ a {
     margin-top: 10px;
 }
 
+.acoes-formulario {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.botao-tabela {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 9px 16px;
+    border-radius: 999px;
+    background: rgba(23, 107, 135, 0.12);
+    color: var(--azul-profundo);
+    font-weight: 700;
+    white-space: nowrap;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.botao-tabela:hover {
+    background: rgba(23, 107, 135, 0.2);
+    transform: translateY(-1px);
+}
+
 .tabela-responsiva {
     overflow-x: auto;
 }
