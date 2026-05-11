@@ -45,7 +45,7 @@ $classeStatus = $mensagemConexao === "" ? "status-ok" : "status-erro";
             <aside class="hero-card">
                 <h2>Objetivos do AquaSelf</h2>
                 <ul>
-                    <li>Monitorar a saude e a localizacao de animais marinhos.</li>
+                    <li>Documentar o monitoramento a saude e a localizacao de animais marinhos.</li>
                     <li>Registrar temperatura, pH, salinidade e nivel de poluicao.</li>
                     <li>Reunir informacoes importantes para analise e tomada de decisao.</li>
                 </ul>
@@ -91,11 +91,11 @@ $classeStatus = $mensagemConexao === "" ? "status-ok" : "status-erro";
             <div class="topicos">
                 <div>
                     <h3>Rastreamento animal</h3>
-                    <p>Cadastre especie, identificacao, localizacao atual e condicao de saude.</p>
+                    <p>Cadastre especie, identificação, localização atual e condição de saude.</p>
                 </div>
                 <div>
                     <h3>Monitoramento ambiental</h3>
-                    <p>Armazene temperatura da agua, salinidade, pH e nivel de poluicao.</p>
+                    <p>Armazene temperatura da agua, salinidade, pH e nivel de poluição.</p>
                 </div>
                 <div>
                     <h3>Consulta operacional</h3>
